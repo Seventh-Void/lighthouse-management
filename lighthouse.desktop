@@ -1,6 +1,6 @@
 [Desktop Entry]
 Type=Application
-Name=Lighthouse
+Name=Lighthouse Management
 Comment=Configure SteamVR Base Station 2.0 units over Bluetooth
 Exec=lighthouse
 Icon=lighthouse

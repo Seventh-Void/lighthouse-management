@@ -37,14 +37,14 @@ pub fn run() -> eframe::Result {
     let options = eframe::NativeOptions {
         viewport: egui::ViewportBuilder::default()
             .with_icon(icon)
-            .with_title("Lighthouse")
+            .with_title("Lighthouse Management")
             .with_app_id("lighthouse")
             .with_inner_size([860.0, 720.0])
-            .with_min_inner_size([600.0, 440.0]),
+            .with_min_inner_size([720.0, 440.0]),
         ..Default::default()
     };
     eframe::run_native(
-        "Lighthouse",
+        "Lighthouse Management",
         options,
         Box::new(|cc| Ok(Box::new(App::new(cc)))),
     )
@@ -61,9 +61,8 @@ enum Cmd {
 }
 
 enum Event {
-    Found(Vec<ble::Seen>),
+    Found(Result<Vec<ble::Seen>, String>),
     Survey(Result<Vec<ble::Seen>, String>),
-    ScanFailed(String),
     Power(String, Power),
     Channel(String, u8),
     Info(String, Vec<(&'static str, String)>),
@@ -94,10 +93,8 @@ impl Shared {
     }
 
     async fn scan(&self) {
-        match async { ble::scan(&self.adapter().await?, 6).await }.await {
-            Ok(found) => self.send(Event::Found(found)),
-            Err(e) => self.send(Event::ScanFailed(e.to_string())),
-        }
+        let r = async { ble::scan(&self.adapter().await?, 6).await }.await;
+        self.send(Event::Found(r.map_err(|e| e.to_string())));
     }
 
     async fn survey(&self, skip: Vec<String>) {
@@ -322,7 +319,7 @@ impl App {
 
     fn on_event(&mut self, e: Event) {
         match e {
-            Event::Found(found) => {
+            Event::Found(Ok(found)) => {
                 self.scanning = false;
                 let n = found.len();
                 for s in found {
@@ -350,7 +347,7 @@ impl App {
                 self.surveying = false;
                 self.warn(format!("Interference check failed: {e}"));
             }
-            Event::ScanFailed(e) => {
+            Event::Found(Err(e)) => {
                 self.scanning = false;
                 self.warn(format!("Scan failed: {e}. Is bluetooth.service running?"));
             }
@@ -429,12 +426,8 @@ impl eframe::App for App {
                         ui.add_space(16.0);
                         let mut acts = Vec::new();
                         for r in &self.rows {
-                            let ctx = CardCtx {
-                                photo: &self.photo,
-                                off: self.off,
-                                t,
-                            };
-                            if let Some(a) = card(ui, r, &ctx, &mut self.rename) {
+                            if let Some(a) = card(ui, r, &self.photo, self.off, t, &mut self.rename)
+                            {
                                 acts.push((r.addr.clone(), a));
                             }
                             ui.add_space(10.0);
@@ -461,12 +454,20 @@ impl App {
     fn header(&mut self, ui: &mut Ui) {
         ui.horizontal(|ui| {
             ui.vertical(|ui| {
-                ui.label(
-                    RichText::new("LIGHTHOUSE")
-                        .font(display(34.0))
-                        .color(TEXT)
-                        .extra_letter_spacing(4.0),
-                );
+                ui.horizontal(|ui| {
+                    ui.label(
+                        RichText::new("LIGHTHOUSE")
+                            .font(display(34.0))
+                            .color(TEXT)
+                            .extra_letter_spacing(4.0),
+                    );
+                    ui.label(
+                        RichText::new("MANAGEMENT")
+                            .font(display(34.0))
+                            .color(LASER)
+                            .extra_letter_spacing(4.0),
+                    );
+                });
                 let color = if self.status_bad { BAD } else { DIM };
                 ui.label(RichText::new(&self.status).monospace().color(color));
             });
@@ -676,7 +677,7 @@ impl App {
                 tip.extend(
                     theirs
                         .iter()
-                        .map(|s| format!("{} (other, {})", s.name, dbm(s.rssi))),
+                        .map(|s| format!("{} (other, {})", s.name, ble::dbm(s.rssi))),
                 );
                 ui.interact(r, ui.id().with(("ch", ch)), Sense::hover())
                     .on_hover_text(tip.join("\n"));
@@ -747,7 +748,7 @@ impl App {
                             others
                                 .iter()
                                 .filter(|s| s.channel == r.channel)
-                                .map(|s| format!("{} ({})", s.name, dbm(s.rssi))),
+                                .map(|s| format!("{} ({})", s.name, ble::dbm(s.rssi))),
                         )
                         .collect();
                     ui.horizontal(|ui| {
@@ -771,17 +772,14 @@ impl App {
     }
 }
 
-fn dbm(rssi: Option<i16>) -> String {
-    rssi.map_or("? dBm".into(), |r| format!("{r} dBm"))
-}
-
-struct CardCtx<'a> {
-    photo: &'a TextureHandle,
+fn card(
+    ui: &mut Ui,
+    row: &Row,
+    tex: &TextureHandle,
     off: Power,
     t: f64,
-}
-
-fn card(ui: &mut Ui, row: &Row, cx: &CardCtx, rename: &mut Option<Rename>) -> Option<Act> {
+    rename: &mut Option<Rename>,
+) -> Option<Act> {
     let mut act = None;
     let edge = if row.error.is_some() {
         BAD.gamma_multiply(0.7)
@@ -796,7 +794,7 @@ fn card(ui: &mut Ui, row: &Row, cx: &CardCtx, rename: &mut Option<Rename>) -> Op
         .show(ui, |ui| {
             ui.set_width(ui.available_width());
             ui.horizontal(|ui| {
-                photo(ui, cx.photo, row, cx.t);
+                photo(ui, tex, row, t);
                 ui.add_space(12.0);
                 ui.vertical(|ui| {
                     ui.horizontal(|ui| {
@@ -857,9 +855,9 @@ fn card(ui: &mut Ui, row: &Row, cx: &CardCtx, rename: &mut Option<Rename>) -> Op
                             act = Some(Act::Run(Cmd::Power(Power::On)));
                         }
                         ui.add_space(8.0);
-                        let off = row.power == Some(cx.off);
-                        if power_button(ui, false, off)
-                            .on_hover_text(cx.off.label())
+                        let lit = row.power == Some(off);
+                        if power_button(ui, false, lit)
+                            .on_hover_text(off.label())
                             .clicked()
                         {
                             act = Some(Act::Off);

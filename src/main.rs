@@ -64,7 +64,7 @@ async fn cli(args: &[String]) -> Res<bool> {
             let found = ble::scan(&ble::adapter().await?, 6).await?;
             remember(&found)?;
             for s in &found {
-                println!("{}  {}  {}", s.name, s.addr, dbm(s.rssi));
+                println!("{}  {}  {}", s.name, s.addr, ble::dbm(s.rssi));
             }
             return Ok(!found.is_empty());
         }
@@ -135,13 +135,10 @@ async fn apply(st: &Station, op: Op) -> Res<String> {
             }
             out
         }
-        Op::Power(p) => {
-            st.set_power(p).await?;
-            st.settle(p, |_| {}).await?.label()
-        }
-        Op::Toggle => {
-            let p = match st.power().await? {
-                Power::On | Power::Booting => ble::off_mode(),
+        Op::Power(_) | Op::Toggle => {
+            let p = match op {
+                Op::Power(p) => p,
+                _ if matches!(st.power().await?, Power::On | Power::Booting) => ble::off_mode(),
                 _ => Power::On,
             };
             st.set_power(p).await?;
@@ -170,10 +167,6 @@ fn remember(found: &[ble::Seen]) -> Res<()> {
     ble::save(&saved)
 }
 
-fn dbm(rssi: Option<i16>) -> String {
-    rssi.map_or("? dBm".into(), |r| format!("{r} dBm"))
-}
-
 /// Read every saved station's channel plus any other station in range, then suggest channels.
 async fn survey() -> Res<bool> {
     let a = ble::adapter().await?;
@@ -195,7 +188,7 @@ async fn survey() -> Res<bool> {
         let ch = s
             .channel
             .map_or("channel ?".into(), |c| format!("channel {c}"));
-        println!("  {}  {}  {}  {ch}", s.name, s.addr, dbm(s.rssi));
+        println!("  {}  {}  {}  {ch}", s.name, s.addr, ble::dbm(s.rssi));
     }
     let taken: Vec<(u8, Option<i16>)> = others
         .iter()

@@ -93,6 +93,20 @@ pub async fn adapter() -> Res<Adapter> {
         .ok_or_else(|| "no Bluetooth adapter found".into())
 }
 
+/// BlueZ answers "Operation already in progress" while an earlier discovery (ours or
+/// another process's) is still stopping, so wait a moment and retry.
+async fn start_scan(a: &Adapter) -> Res<()> {
+    for _ in 0..4 {
+        match a.start_scan(ScanFilter::default()).await {
+            Err(e) if e.to_string().contains("in progress") => {
+                sleep(Duration::from_millis(500)).await
+            }
+            r => return Ok(r?),
+        }
+    }
+    Ok(a.start_scan(ScanFilter::default()).await?)
+}
+
 /// A station heard over Bluetooth. `channel` is only filled in by `survey`.
 pub struct Seen {
     pub addr: String,
@@ -104,7 +118,7 @@ pub struct Seen {
 /// Every base station advertising during a `secs`-long scan.
 pub async fn scan(a: &Adapter, secs: u64) -> Res<Vec<Seen>> {
     let _g = SCAN.lock().await;
-    a.start_scan(ScanFilter::default()).await?;
+    start_scan(a).await?;
     sleep(Duration::from_secs(secs)).await;
     let mut out = Vec::new();
     for p in a.peripherals().await.unwrap_or_default() {
@@ -148,7 +162,7 @@ async fn find(a: &Adapter, addr: &str) -> Res<Peripheral> {
         return Ok(p);
     }
     let _g = SCAN.lock().await;
-    a.start_scan(ScanFilter::default()).await?;
+    start_scan(a).await?;
     let deadline = Instant::now() + Duration::from_secs(10);
     let found = loop {
         sleep(Duration::from_millis(300)).await;
@@ -318,6 +332,10 @@ pub fn plan(mine: &[Option<u8>], others: &[(u8, Option<i16>)]) -> Vec<Option<u8>
         }
     }
     out
+}
+
+pub fn dbm(rssi: Option<i16>) -> String {
+    rssi.map_or("? dBm".into(), |r| format!("{r} dBm"))
 }
 
 /// 1 for a faint or unknown signal, up to 6 for a station right next to us.

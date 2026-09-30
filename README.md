@@ -1,8 +1,8 @@
-# Lighthouse
+# Lighthouse Management
 
 A native Linux app for managing **SteamVR / Valve Index Base Station 2.0** units over Bluetooth LE: power them on and off, change channels, find channel conflicts and check for interference from other stations nearby. Written in Rust with an [egui](https://github.com/emilk/egui) interface and a full command line.
 
-![Lighthouse main window](docs/screenshot.png)
+![Lighthouse Management main window](docs/screenshot.png)
 
 ## Features
 
@@ -34,9 +34,9 @@ No root is needed. BlueZ lets normal desktop users scan and connect.
 ### AppImage
 
 ```sh
-chmod +x Lighthouse-x86_64.AppImage
-./Lighthouse-x86_64.AppImage            # opens the app
-./Lighthouse-x86_64.AppImage on         # command line works the same
+chmod +x Lighthouse_Management-x86_64.AppImage
+./Lighthouse_Management-x86_64.AppImage            # opens the app
+./Lighthouse_Management-x86_64.AppImage on         # command line works the same
 ```
 
 To add it to your application menu, copy it to `~/.local/bin/lighthouse` and install the desktop entry (see below), or use a tool such as AppImageLauncher or Gear Lever.
@@ -50,7 +50,7 @@ Needs a Rust toolchain (`rustup`, Rust 1.85 or newer for edition 2024) and the D
 ```sh
 cargo install --path .
 install -Dm644 lighthouse.desktop ~/.local/share/applications/lighthouse.desktop
-install -Dm644 assets/icon.png ~/.local/share/icons/hicolor/256x256/apps/lighthouse.png
+install -Dm644 assets/icon.png ~/.local/share/icons/hicolor/512x512/apps/lighthouse.png
 ```
 
 The binary goes to `~/.cargo/bin/lighthouse`. Make sure that directory is on your `PATH`.
@@ -60,12 +60,12 @@ The binary goes to `~/.cargo/bin/lighthouse`. Make sure that directory is on you
 Needs [`appimagetool`](https://github.com/AppImage/appimagetool) on `PATH`.
 
 ```sh
-./packaging/appimage.sh      # writes Lighthouse-x86_64.AppImage in the repo root
+./packaging/appimage.sh      # writes Lighthouse_Management-x86_64.AppImage in the repo root
 ```
 
 ## Using the app
 
-Run `lighthouse` with no arguments, or launch **Lighthouse** from your application menu.
+Run `lighthouse` with no arguments, or launch **Lighthouse Management** from your application menu.
 
 On first launch the app scans for 6 seconds and saves every station it finds. After that it loads your saved stations and reads their state straight away.
 
