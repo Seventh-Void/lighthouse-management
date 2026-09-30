@@ -51,6 +51,7 @@ Needs a Rust toolchain (`rustup`, Rust 1.85 or newer for edition 2024) and the D
 cargo install --path .
 install -Dm644 lighthouse.desktop ~/.local/share/applications/lighthouse.desktop
 install -Dm644 assets/icon.png ~/.local/share/icons/hicolor/512x512/apps/lighthouse.png
+gtk-update-icon-cache -f -t ~/.local/share/icons/hicolor   # refresh a stale icon cache, if you have one
 ```
 
 The binary goes to `~/.cargo/bin/lighthouse`. Make sure that directory is on your `PATH`.
@@ -152,6 +153,8 @@ Or bind `lighthouse toggle` to a keyboard shortcut in your desktop's settings.
 **No stations found.** Make sure they have power (the LED is lit or pulsing) and are within range. Close SteamVR's own base station power management and any phone app that might be connected: a station accepts only one Bluetooth connection at a time.
 
 **A station shows an error or "not in range".** Press **READ** to retry. Each command connects, retries up to 3 times, then disconnects. A station that has just been unplugged can take a few seconds to advertise again.
+
+**The app shows a blank "?" icon in the menu or taskbar.** An old `~/.local/share/icons/hicolor/icon-theme.cache` is hiding the new icon. Run `gtk-update-icon-cache -f -t ~/.local/share/icons/hicolor`, then log out and back in (or restart Plasma).
 
 **The window shows a FPS/GPU overlay.** That is MangoHud enabled system-wide. Run `MANGOHUD=0 lighthouse`.
 
