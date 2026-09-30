@@ -1,0 +1,18 @@
+[Desktop Entry]
+Type=Application
+Name=Lighthouse
+Comment=Configure SteamVR Base Station 2.0 units over Bluetooth
+Exec=lighthouse
+Icon=lighthouse
+Terminal=false
+Categories=Utility;Settings;HardwareSettings;
+StartupWMClass=lighthouse
+Actions=on;sleep;
+
+[Desktop Action on]
+Name=All stations on
+Exec=lighthouse on
+
+[Desktop Action sleep]
+Name=All stations sleep
+Exec=lighthouse sleep
